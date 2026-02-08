@@ -29,6 +29,15 @@ Run the worker in a second terminal to “publish” due, approved schedules:
 pnpm worker
 ```
 
+## Quality Gates
+
+```bash
+pnpm lint
+pnpm type-check
+pnpm test
+pnpm build
+```
+
 ## Environment
 
 Copy `.env.example` to `.env.local` and tweak as needed.
@@ -45,4 +54,3 @@ Key vars:
 The current implementation ships with a mock LinkedIn adapter. A real adapter
 should be added behind an explicit opt-in flag (and you should ensure your usage
 complies with LinkedIn’s platform policies and your local laws).
-
