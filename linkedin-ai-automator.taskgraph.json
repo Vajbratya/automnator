@@ -1,0 +1,2553 @@
+{
+  "metadata": {
+    "project": "LinkedIn AI Automator + Viralizer",
+    "repo_root": "/Users/natanribeiro/automnator",
+    "user_query": "create a linkedin ai automator and viralizer (prefer unofficial GitHub APIs)",
+    "interaction_budget": 0,
+    "constraints": [
+      "Prefer non-official LinkedIn API clients from GitHub, with a fallback plan.",
+      "Human-in-the-loop by default (approval queue) to reduce spam/abuse risk.",
+      "Encrypt LinkedIn session data at rest; never log secrets.",
+      "Rate limit LinkedIn actions per account."
+    ]
+  },
+  "taskgraph": {
+    "lanes": [
+      "SEC",
+      "DB",
+      "RAG",
+      "AI",
+      "BILL",
+      "OBS",
+      "TEST",
+      "UI",
+      "CLEAN",
+      "CI/OPS"
+    ],
+    "tasks": [
+      {
+        "id": "CIOPS-001",
+        "lane": "CI/OPS",
+        "title": "Scaffold app repo (web + worker)",
+        "goal": "Create a runnable baseline for a web UI + background worker.",
+        "change": "Initialize a TypeScript repo with a Next.js web app and a Node worker entrypoint.",
+        "verify": "Run dev servers and confirm a health page loads and worker boots.",
+        "rollback": "Revert scaffold commit if it blocks installs or boots.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-001"
+        ],
+        "deps": []
+      },
+      {
+        "id": "CIOPS-002",
+        "lane": "CI/OPS",
+        "title": "Add env schema + config loader",
+        "goal": "Make configuration explicit and validated at startup.",
+        "change": "Add a typed env loader with required keys and safe defaults.",
+        "verify": "Start web/worker with missing env and confirm it fails fast with clear errors.",
+        "rollback": "Remove env validation and fall back to raw process.env.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-002"
+        ],
+        "deps": [
+          "CIOPS-001"
+        ]
+      },
+      {
+        "id": "CIOPS-003",
+        "lane": "CI/OPS",
+        "title": "Add Supabase client wrappers",
+        "goal": "Standardize DB/auth access in web + worker.",
+        "change": "Create server/client Supabase helpers with a single import path.",
+        "verify": "Run a small script that connects and performs a trivial query against local/dev.",
+        "rollback": "Revert Supabase wrappers and keep direct client creation.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-003"
+        ],
+        "deps": [
+          "CIOPS-002"
+        ]
+      },
+      {
+        "id": "CIOPS-004",
+        "lane": "CI/OPS",
+        "title": "Define LinkedIn client interface",
+        "goal": "Create a stable boundary for LinkedIn operations.",
+        "change": "Define a LinkedIn client interface (connect, fetch posts, create post, analytics, comment, search).",
+        "verify": "Type-check and run a mock implementation through a minimal smoke script.",
+        "rollback": "Revert interface module and keep LinkedIn calls inline.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-004"
+        ],
+        "deps": [
+          "CIOPS-003"
+        ]
+      },
+      {
+        "id": "CIOPS-005",
+        "lane": "CI/OPS",
+        "title": "Select unofficial LinkedIn API (GitHub) + ADR",
+        "goal": "Choose a non-official LinkedIn API client from GitHub with a fallback plan.",
+        "change": "Evaluate 2-3 GitHub options and write an ADR covering risks, breakage plan, and scope.",
+        "verify": "Review ADR and confirm minimal POC can fetch profile + list posts.",
+        "rollback": "Reject ADR and switch to Playwright/UI automation path.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "doc:adr-linkedin-api",
+          "evidence:CIOPS-005"
+        ],
+        "deps": [
+          "CIOPS-004"
+        ]
+      },
+      {
+        "id": "CIOPS-006",
+        "lane": "CI/OPS",
+        "title": "Implement LinkedIn unofficial client adapter",
+        "goal": "Provide LinkedIn read/write behind the interface.",
+        "change": "Implement an adapter using the chosen GitHub unofficial API client with typed methods.",
+        "verify": "Run a POC flow in dev: fetch profile + list recent posts (no posting yet).",
+        "rollback": "Disable adapter and use mock client only.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-006"
+        ],
+        "deps": [
+          "CIOPS-005"
+        ]
+      },
+      {
+        "id": "CIOPS-007",
+        "lane": "CI/OPS",
+        "title": "Implement LinkedIn mock client + fixtures",
+        "goal": "Enable local dev and tests without hitting LinkedIn.",
+        "change": "Add deterministic fixtures and a mock client for feed/posts/analytics/search.",
+        "verify": "Run the app fully offline against fixtures.",
+        "rollback": "Remove mock and hardcode minimal stubs.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-007"
+        ],
+        "deps": [
+          "CIOPS-006"
+        ]
+      },
+      {
+        "id": "CIOPS-008",
+        "lane": "CI/OPS",
+        "title": "Optional: Playwright fallback client",
+        "goal": "Have a backup integration if unofficial API breaks.",
+        "change": "Add a Playwright-based client for create-post + fetch-analytics (guarded by feature flag).",
+        "verify": "Run a controlled headful smoke run and confirm actions work.",
+        "rollback": "Disable Playwright client and keep only unofficial API.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-008"
+        ],
+        "deps": [
+          "CIOPS-007"
+        ]
+      },
+      {
+        "id": "CIOPS-009",
+        "lane": "CI/OPS",
+        "title": "Add worker runner (DI for LinkedIn client)",
+        "goal": "Run automations outside the web request lifecycle.",
+        "change": "Create a worker process that pulls due jobs and runs actions using injected LinkedIn client.",
+        "verify": "Trigger a sample job and confirm logs + DB writes are produced.",
+        "rollback": "Remove worker DI and run jobs inline in API routes.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-009"
+        ],
+        "deps": [
+          "CIOPS-008"
+        ]
+      },
+      {
+        "id": "CIOPS-010",
+        "lane": "CI/OPS",
+        "title": "Add Postgres job queue + scheduler",
+        "goal": "Execute scheduled work reliably.",
+        "change": "Add a Postgres-backed queue and a scheduler loop.",
+        "verify": "Schedule a noop job and confirm it executes exactly once.",
+        "rollback": "Remove queue and run scheduled logic via polling.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-010"
+        ],
+        "deps": [
+          "CIOPS-009"
+        ]
+      },
+      {
+        "id": "CIOPS-011",
+        "lane": "CI/OPS",
+        "title": "API: LinkedIn connect/disconnect",
+        "goal": "Allow users to connect LinkedIn accounts.",
+        "change": "Add API routes to start/finish connect flow and to disconnect.",
+        "verify": "Connect in mock mode and confirm DB state changes.",
+        "rollback": "Disable connect endpoints.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-011"
+        ],
+        "deps": [
+          "CIOPS-010"
+        ]
+      },
+      {
+        "id": "CIOPS-012",
+        "lane": "CI/OPS",
+        "title": "API: Drafts CRUD",
+        "goal": "Store and edit post drafts.",
+        "change": "Add draft CRUD API routes with input validation.",
+        "verify": "CRUD drafts and confirm RLS blocks cross-user access.",
+        "rollback": "Revert drafts API routes.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-012"
+        ],
+        "deps": [
+          "CIOPS-011"
+        ]
+      },
+      {
+        "id": "CIOPS-013",
+        "lane": "CI/OPS",
+        "title": "API: AI generation",
+        "goal": "Expose AI generation to the UI in a controlled way.",
+        "change": "Add endpoints for generate-hook/generate-post/generate-variants/generate-replies.",
+        "verify": "Call endpoints from a dev page and confirm schema outputs.",
+        "rollback": "Disable AI endpoints.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-013"
+        ],
+        "deps": [
+          "CIOPS-012"
+        ]
+      },
+      {
+        "id": "CIOPS-014",
+        "lane": "CI/OPS",
+        "title": "API: Schedules + approvals",
+        "goal": "Support scheduling posts and human approvals.",
+        "change": "Add endpoints to create schedules, list due schedules, and approve/reject proposed actions.",
+        "verify": "Schedule a mock post and confirm it becomes due then is marked executed.",
+        "rollback": "Remove approval queue.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-014"
+        ],
+        "deps": [
+          "CIOPS-013"
+        ]
+      },
+      {
+        "id": "CIOPS-015",
+        "lane": "CI/OPS",
+        "title": "API: Publish pipeline",
+        "goal": "Turn scheduled drafts into LinkedIn posts.",
+        "change": "Add worker job to publish approved schedules and persist post IDs/results.",
+        "verify": "Publish in mock mode and confirm DB writes and idempotency.",
+        "rollback": "Disable publish pipeline.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-015"
+        ],
+        "deps": [
+          "CIOPS-014"
+        ]
+      },
+      {
+        "id": "CIOPS-016",
+        "lane": "CI/OPS",
+        "title": "API: Analytics ingestion",
+        "goal": "Store analytics snapshots for learning and dashboards.",
+        "change": "Add jobs to fetch analytics for published posts and write snapshots.",
+        "verify": "Fetch analytics for a fixture post and confirm data lands in DB.",
+        "rollback": "Disable analytics ingestion.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-016"
+        ],
+        "deps": [
+          "CIOPS-015"
+        ]
+      },
+      {
+        "id": "CIOPS-017",
+        "lane": "CI/OPS",
+        "title": "Asset storage (carousels)",
+        "goal": "Support uploading/generating assets for posts.",
+        "change": "Wire Supabase Storage for assets and signed URLs.",
+        "verify": "Upload a test file and confirm it can be retrieved with correct ACL.",
+        "rollback": "Remove storage integration.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-017"
+        ],
+        "deps": [
+          "CIOPS-016"
+        ]
+      },
+      {
+        "id": "CIOPS-018",
+        "lane": "CI/OPS",
+        "title": "Deployment configs (web + worker)",
+        "goal": "Make the system deployable with separated runtimes.",
+        "change": "Add deploy config for web and worker with env wiring.",
+        "verify": "Deploy to staging and confirm health + one scheduled job run.",
+        "rollback": "Roll back to local-only development.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CIOPS-018"
+        ],
+        "deps": [
+          "CIOPS-017"
+        ]
+      },
+      {
+        "id": "CIOPS-019",
+        "lane": "CI/OPS",
+        "title": "Local dev runbook",
+        "goal": "Make local iteration reproducible.",
+        "change": "Document how to run web/worker/db locally including fixtures and mock mode.",
+        "verify": "Follow the runbook from a clean clone and confirm it works.",
+        "rollback": "Remove runbook.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "doc:local-runbook",
+          "evidence:CIOPS-019"
+        ],
+        "deps": [
+          "CIOPS-018"
+        ]
+      },
+      {
+        "id": "CLEAN-001",
+        "lane": "CLEAN",
+        "title": "TypeScript strict + path aliases",
+        "goal": "Keep the codebase consistent and type-safe.",
+        "change": "Enable strict TS settings and configure import path aliases.",
+        "verify": "Run type-check and ensure no errors.",
+        "rollback": "Revert TS strict settings.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CLEAN-001"
+        ],
+        "deps": [
+          "CIOPS-001"
+        ]
+      },
+      {
+        "id": "CLEAN-002",
+        "lane": "CLEAN",
+        "title": "ESLint + Prettier baseline",
+        "goal": "Catch common bugs early and keep formatting stable.",
+        "change": "Add ESLint/Prettier configs and scripts.",
+        "verify": "Run lint + format check.",
+        "rollback": "Remove lint/format tooling.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CLEAN-002"
+        ],
+        "deps": [
+          "CLEAN-001"
+        ]
+      },
+      {
+        "id": "CLEAN-003",
+        "lane": "CLEAN",
+        "title": "Pre-commit hooks (optional)",
+        "goal": "Prevent broken commits.",
+        "change": "Add lint-staged pre-commit hook to run lint/type-check on touched files.",
+        "verify": "Make a small change and confirm hook runs.",
+        "rollback": "Remove git hooks.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CLEAN-003"
+        ],
+        "deps": [
+          "CLEAN-002"
+        ]
+      },
+      {
+        "id": "CLEAN-004",
+        "lane": "CLEAN",
+        "title": "README + architecture overview",
+        "goal": "Document how the system works.",
+        "change": "Write README and a short architecture doc (web/worker/db/linkedin/ai).",
+        "verify": "Review docs for accuracy.",
+        "rollback": "Remove docs.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "doc:README",
+          "doc:architecture"
+        ],
+        "deps": [
+          "CLEAN-003"
+        ]
+      },
+      {
+        "id": "CLEAN-005",
+        "lane": "CLEAN",
+        "title": "Env example + secrets hygiene",
+        "goal": "Reduce accidental secret leaks.",
+        "change": "Add .env.example and update .gitignore; ensure no secrets are committed.",
+        "verify": "Run a secrets scan locally and confirm clean.",
+        "rollback": "Remove env example.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CLEAN-005"
+        ],
+        "deps": [
+          "CLEAN-004"
+        ]
+      },
+      {
+        "id": "CLEAN-006",
+        "lane": "CLEAN",
+        "title": "ADR log scaffold",
+        "goal": "Capture key decisions over time.",
+        "change": "Add /docs/adr with a template and index.",
+        "verify": "Add one ADR and confirm it renders/readable.",
+        "rollback": "Remove ADR scaffolding.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CLEAN-006"
+        ],
+        "deps": [
+          "CLEAN-005"
+        ]
+      },
+      {
+        "id": "CLEAN-007",
+        "lane": "CLEAN",
+        "title": "API contract typing",
+        "goal": "Make backend changes safer.",
+        "change": "Add typed request/response contracts for key endpoints.",
+        "verify": "Type-check and ensure UI and API stay in sync.",
+        "rollback": "Remove contract layer.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CLEAN-007"
+        ],
+        "deps": [
+          "CLEAN-006"
+        ]
+      },
+      {
+        "id": "CLEAN-008",
+        "lane": "CLEAN",
+        "title": "Release notes scaffold",
+        "goal": "Track changes for users.",
+        "change": "Add CHANGELOG and a minimal release note workflow.",
+        "verify": "Cut a test release note entry.",
+        "rollback": "Remove release notes.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:CLEAN-008"
+        ],
+        "deps": [
+          "CLEAN-007"
+        ]
+      },
+      {
+        "id": "DB-001",
+        "lane": "DB",
+        "title": "Baseline migrations + local Supabase",
+        "goal": "Create a repeatable DB schema migration flow.",
+        "change": "Initialize Supabase migrations and apply initial schema.",
+        "verify": "Reset local DB and re-apply migrations successfully.",
+        "rollback": "Remove migration tooling.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "db:migrations-baseline",
+          "evidence:DB-001"
+        ],
+        "deps": [
+          "CIOPS-003",
+          "CLEAN-001"
+        ]
+      },
+      {
+        "id": "DB-002",
+        "lane": "DB",
+        "title": "Profiles/workspaces",
+        "goal": "Support multi-user data ownership.",
+        "change": "Create profiles and optional workspaces tables with ownership columns.",
+        "verify": "Insert fixture rows and confirm queries work.",
+        "rollback": "Drop tables.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-002"
+        ],
+        "deps": [
+          "DB-001"
+        ]
+      },
+      {
+        "id": "DB-003",
+        "lane": "DB",
+        "title": "LinkedIn accounts",
+        "goal": "Persist LinkedIn connections.",
+        "change": "Create li_accounts table (public profile id, status, timestamps).",
+        "verify": "Insert a mock LinkedIn account and confirm it round-trips.",
+        "rollback": "Drop li_accounts.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-003"
+        ],
+        "deps": [
+          "DB-002"
+        ]
+      },
+      {
+        "id": "DB-004",
+        "lane": "DB",
+        "title": "LinkedIn sessions",
+        "goal": "Store LinkedIn session blobs.",
+        "change": "Create li_sessions table (encrypted session blob, rotation fields).",
+        "verify": "Insert mock session and confirm it round-trips.",
+        "rollback": "Drop li_sessions.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-004"
+        ],
+        "deps": [
+          "DB-003"
+        ]
+      },
+      {
+        "id": "DB-005",
+        "lane": "DB",
+        "title": "Drafts",
+        "goal": "Store post drafts.",
+        "change": "Create drafts table (content, language, status, prompt_version).",
+        "verify": "Create a draft and confirm read/write.",
+        "rollback": "Drop drafts.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-005"
+        ],
+        "deps": [
+          "DB-004"
+        ]
+      },
+      {
+        "id": "DB-006",
+        "lane": "DB",
+        "title": "Schedules + approvals",
+        "goal": "Store scheduled posts and approval state.",
+        "change": "Create schedules table (run_at, timezone, approval_state, payload refs).",
+        "verify": "Schedule a draft and confirm it queries by run_at.",
+        "rollback": "Drop schedules.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-006"
+        ],
+        "deps": [
+          "DB-005"
+        ]
+      },
+      {
+        "id": "DB-007",
+        "lane": "DB",
+        "title": "Posts + action logs",
+        "goal": "Track published posts and actions.",
+        "change": "Create posts and actions tables with idempotency keys and error fields.",
+        "verify": "Insert fixture actions and confirm queries.",
+        "rollback": "Drop posts/actions.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-007"
+        ],
+        "deps": [
+          "DB-006"
+        ]
+      },
+      {
+        "id": "DB-008",
+        "lane": "DB",
+        "title": "Analytics snapshots",
+        "goal": "Store metrics over time.",
+        "change": "Create analytics snapshot tables with indexes on (post_id, captured_at).",
+        "verify": "Insert snapshots and run time-series query.",
+        "rollback": "Drop analytics tables.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-008"
+        ],
+        "deps": [
+          "DB-007"
+        ]
+      },
+      {
+        "id": "DB-009",
+        "lane": "DB",
+        "title": "Experiments (A/B)",
+        "goal": "Support variant testing.",
+        "change": "Create experiments and experiment_variants tables tied to drafts/posts.",
+        "verify": "Create a fixture experiment and confirm variant selection.",
+        "rollback": "Drop experiment tables.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-009"
+        ],
+        "deps": [
+          "DB-008"
+        ]
+      },
+      {
+        "id": "DB-010",
+        "lane": "DB",
+        "title": "Content library tables",
+        "goal": "Store examples and extracted patterns.",
+        "change": "Create content_sources and content_patterns tables with dedup keys.",
+        "verify": "Insert sample patterns and confirm search.",
+        "rollback": "Drop content library.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-010"
+        ],
+        "deps": [
+          "DB-009"
+        ]
+      },
+      {
+        "id": "DB-011",
+        "lane": "DB",
+        "title": "Vector embeddings",
+        "goal": "Enable semantic retrieval.",
+        "change": "Enable pgvector and create content_embeddings table.",
+        "verify": "Insert dummy embedding and run nearest-neighbor query.",
+        "rollback": "Disable vector features.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-011"
+        ],
+        "deps": [
+          "DB-010"
+        ]
+      },
+      {
+        "id": "DB-012",
+        "lane": "DB",
+        "title": "RLS policies",
+        "goal": "Prevent cross-tenant data access.",
+        "change": "Add RLS policies using ownership checks (auth.uid()).",
+        "verify": "Attempt cross-user reads and confirm blocked.",
+        "rollback": "Disable RLS.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-012"
+        ],
+        "deps": [
+          "DB-011"
+        ]
+      },
+      {
+        "id": "DB-013",
+        "lane": "DB",
+        "title": "Retention + indexes pass",
+        "goal": "Reduce liability and keep queries fast.",
+        "change": "Add retention cleanup for logs/scrapes and ensure core indexes exist.",
+        "verify": "EXPLAIN key queries and confirm index usage.",
+        "rollback": "Remove cleanup/indexes.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-013"
+        ],
+        "deps": [
+          "DB-012"
+        ]
+      },
+      {
+        "id": "DB-014",
+        "lane": "DB",
+        "title": "Job claiming helper",
+        "goal": "Make worker execution idempotent.",
+        "change": "Add a transaction-safe claim helper for schedules/jobs.",
+        "verify": "Simulate concurrent claims and confirm single winner.",
+        "rollback": "Remove claim helper.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-014"
+        ],
+        "deps": [
+          "DB-013"
+        ]
+      },
+      {
+        "id": "DB-015",
+        "lane": "DB",
+        "title": "Dev seed + fixtures",
+        "goal": "Make demo/dev flows easy.",
+        "change": "Add seed script to create demo user, mock LinkedIn connection, and sample drafts.",
+        "verify": "Reset DB and confirm seed produces a usable demo.",
+        "rollback": "Remove seed script.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:DB-015"
+        ],
+        "deps": [
+          "DB-014"
+        ]
+      },
+      {
+        "id": "SEC-001",
+        "lane": "SEC",
+        "title": "Compliance guardrails",
+        "goal": "Set boundaries to avoid spam/abuse.",
+        "change": "Add a policy: require user consent, safe-mode defaults, and no mass unsolicited messaging.",
+        "verify": "Ensure policy is shown during onboarding.",
+        "rollback": "Remove policy.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "doc:policy-guardrails",
+          "evidence:SEC-001"
+        ],
+        "deps": [
+          "CIOPS-011",
+          "DB-002"
+        ]
+      },
+      {
+        "id": "SEC-002",
+        "lane": "SEC",
+        "title": "Threat model",
+        "goal": "Identify credential/session risks.",
+        "change": "Write a short threat model for session storage, abuse, and data retention.",
+        "verify": "Review threats and mitigations against the current design.",
+        "rollback": "Archive threat model.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "doc:threat-model",
+          "evidence:SEC-002"
+        ],
+        "deps": [
+          "SEC-001"
+        ]
+      },
+      {
+        "id": "SEC-003",
+        "lane": "SEC",
+        "title": "Encrypt LinkedIn sessions",
+        "goal": "Prevent plaintext cookie/token storage.",
+        "change": "Encrypt li_sessions session blobs at rest with an app-level key.",
+        "verify": "Store a mock session and confirm DB only sees ciphertext.",
+        "rollback": "Disable encryption (dev-only).",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-003"
+        ],
+        "deps": [
+          "SEC-002",
+          "DB-004"
+        ]
+      },
+      {
+        "id": "SEC-004",
+        "lane": "SEC",
+        "title": "Permissions + safe mode",
+        "goal": "Keep humans in control.",
+        "change": "Add explicit opt-in for autopost/auto-reply and default to an approval queue.",
+        "verify": "Attempt to run autopost without opt-in and confirm blocked.",
+        "rollback": "Remove gating.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-004"
+        ],
+        "deps": [
+          "SEC-003",
+          "CIOPS-014"
+        ]
+      },
+      {
+        "id": "SEC-005",
+        "lane": "SEC",
+        "title": "Rate limits",
+        "goal": "Reduce risk to user accounts.",
+        "change": "Add per-account rate limits with backoff for LinkedIn actions.",
+        "verify": "Run worker loop and confirm throttling.",
+        "rollback": "Disable throttling.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-005"
+        ],
+        "deps": [
+          "SEC-004",
+          "CIOPS-010"
+        ]
+      },
+      {
+        "id": "SEC-006",
+        "lane": "SEC",
+        "title": "Kill switch",
+        "goal": "Allow immediate automation stop.",
+        "change": "Add a per-user kill switch that blocks worker from executing actions.",
+        "verify": "Enable kill switch and confirm due jobs do not execute.",
+        "rollback": "Remove kill switch.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-006"
+        ],
+        "deps": [
+          "SEC-005"
+        ]
+      },
+      {
+        "id": "SEC-007",
+        "lane": "SEC",
+        "title": "Audit logs",
+        "goal": "Create an audit trail.",
+        "change": "Write audit logs for connect/disconnect, schedule changes, and publish events.",
+        "verify": "Trigger events and confirm audit rows exist.",
+        "rollback": "Disable audit logs.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-007"
+        ],
+        "deps": [
+          "SEC-006",
+          "DB-007"
+        ]
+      },
+      {
+        "id": "SEC-008",
+        "lane": "SEC",
+        "title": "CSRF protection",
+        "goal": "Reduce session riding.",
+        "change": "Add CSRF protection for state-changing dashboard endpoints.",
+        "verify": "Attempt CSRF-like request and confirm blocked.",
+        "rollback": "Disable CSRF checks.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-008"
+        ],
+        "deps": [
+          "SEC-007"
+        ]
+      },
+      {
+        "id": "SEC-009",
+        "lane": "SEC",
+        "title": "Input validation",
+        "goal": "Prevent malformed payloads.",
+        "change": "Add schema validation for all API payloads.",
+        "verify": "Send invalid payloads and confirm 4xx responses.",
+        "rollback": "Remove validation.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-009"
+        ],
+        "deps": [
+          "SEC-008"
+        ]
+      },
+      {
+        "id": "SEC-010",
+        "lane": "SEC",
+        "title": "Abuse heuristics",
+        "goal": "Detect spammy behavior early.",
+        "change": "Implement heuristics (repetitive content, too many actions) and block/flag.",
+        "verify": "Trigger heuristics in dev and confirm blocks/flags.",
+        "rollback": "Disable heuristics.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-010"
+        ],
+        "deps": [
+          "SEC-009"
+        ]
+      },
+      {
+        "id": "SEC-011",
+        "lane": "SEC",
+        "title": "Secrets scan",
+        "goal": "Prevent leaks.",
+        "change": "Add CI secret scanning step.",
+        "verify": "Introduce a dummy secret in a test branch and confirm CI fails.",
+        "rollback": "Remove secret scan.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-011"
+        ],
+        "deps": [
+          "SEC-010",
+          "CLEAN-005"
+        ]
+      },
+      {
+        "id": "SEC-012",
+        "lane": "SEC",
+        "title": "Log redaction",
+        "goal": "Avoid logging sensitive fields.",
+        "change": "Redact tokens/cookies and sensitive payload fields in logs.",
+        "verify": "Log a fake token and confirm it is redacted.",
+        "rollback": "Disable redaction.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:SEC-012"
+        ],
+        "deps": [
+          "SEC-011"
+        ]
+      },
+      {
+        "id": "RAG-001",
+        "lane": "RAG",
+        "title": "Ingestion spec",
+        "goal": "Define what gets ingested and why.",
+        "change": "Write ingestion spec for user's posts and opted-in public examples (fields, retention, consent).",
+        "verify": "Review spec against schema and policy guardrails.",
+        "rollback": "Archive the spec.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "doc:rag-ingestion-spec",
+          "evidence:RAG-001"
+        ],
+        "deps": [
+          "DB-011",
+          "SEC-001"
+        ]
+      },
+      {
+        "id": "RAG-002",
+        "lane": "RAG",
+        "title": "Ingest user's posts",
+        "goal": "Personalize generation.",
+        "change": "Fetch user's past posts and store normalized content_sources.",
+        "verify": "Run ingestion in mock mode and confirm rows are created.",
+        "rollback": "Disable ingestion.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:RAG-002"
+        ],
+        "deps": [
+          "RAG-001",
+          "CIOPS-006"
+        ]
+      },
+      {
+        "id": "RAG-003",
+        "lane": "RAG",
+        "title": "Ingest opted-in public examples",
+        "goal": "Build a viral examples library.",
+        "change": "Ingest examples for creators/hashtags with explicit consent settings.",
+        "verify": "Run against fixtures and confirm dedup.",
+        "rollback": "Disable public ingestion.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:RAG-003"
+        ],
+        "deps": [
+          "RAG-002"
+        ]
+      },
+      {
+        "id": "RAG-004",
+        "lane": "RAG",
+        "title": "Normalize formatting",
+        "goal": "Keep LinkedIn formatting stable.",
+        "change": "Normalize content while preserving whitespace and line breaks.",
+        "verify": "Diff raw vs normalized on fixtures and confirm meaning preserved.",
+        "rollback": "Remove normalization.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:RAG-004"
+        ],
+        "deps": [
+          "RAG-003"
+        ]
+      },
+      {
+        "id": "RAG-005",
+        "lane": "RAG",
+        "title": "Extract patterns",
+        "goal": "Turn examples into reusable building blocks.",
+        "change": "Extract patterns (hook, structure, CTA) and store content_patterns.",
+        "verify": "Run extraction on fixtures and confirm patterns are queryable.",
+        "rollback": "Disable pattern extraction.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:RAG-005"
+        ],
+        "deps": [
+          "RAG-004"
+        ]
+      },
+      {
+        "id": "RAG-006",
+        "lane": "RAG",
+        "title": "Embeddings generation",
+        "goal": "Enable semantic search.",
+        "change": "Generate embeddings for sources and store in content_embeddings.",
+        "verify": "Generate embeddings for fixture set and confirm vector search works.",
+        "rollback": "Disable embeddings generation.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:RAG-006"
+        ],
+        "deps": [
+          "RAG-005",
+          "DB-012"
+        ]
+      },
+      {
+        "id": "RAG-007",
+        "lane": "RAG",
+        "title": "Retrieval API",
+        "goal": "Provide context to AI generation.",
+        "change": "Implement top-k retrieval API for examples and patterns.",
+        "verify": "Query retrieval for a test topic and validate relevance.",
+        "rollback": "Disable retrieval.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:RAG-007"
+        ],
+        "deps": [
+          "RAG-006"
+        ]
+      },
+      {
+        "id": "RAG-008",
+        "lane": "RAG",
+        "title": "Dedup + freshness weighting",
+        "goal": "Avoid stale/duplicate context.",
+        "change": "Add dedup keys and freshness weighting in retrieval.",
+        "verify": "Confirm duplicates removed and recent content preferred.",
+        "rollback": "Remove weighting.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:RAG-008"
+        ],
+        "deps": [
+          "RAG-007"
+        ]
+      },
+      {
+        "id": "RAG-009",
+        "lane": "RAG",
+        "title": "Retrieval eval harness",
+        "goal": "Measure retrieval quality.",
+        "change": "Create eval dataset and compute hit-rate for retrieval.",
+        "verify": "Run eval and record baseline metrics.",
+        "rollback": "Remove eval harness.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "artifact:rag-eval-baseline",
+          "evidence:RAG-009"
+        ],
+        "deps": [
+          "RAG-008"
+        ]
+      },
+      {
+        "id": "RAG-010",
+        "lane": "RAG",
+        "title": "Library browse API",
+        "goal": "Expose library to UI.",
+        "change": "Add endpoints to list/search sources and patterns with pagination.",
+        "verify": "Browse in dev and confirm pagination and RLS.",
+        "rollback": "Disable browse endpoints.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:RAG-010"
+        ],
+        "deps": [
+          "RAG-009",
+          "CIOPS-012"
+        ]
+      },
+      {
+        "id": "AI-001",
+        "lane": "AI",
+        "title": "Provider abstraction",
+        "goal": "Avoid vendor lock-in and simplify testing.",
+        "change": "Add an AI client wrapper supporting at least 1 provider and a mock mode.",
+        "verify": "Run a mock generation and confirm schema output.",
+        "rollback": "Inline provider calls.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-001"
+        ],
+        "deps": [
+          "CIOPS-002"
+        ]
+      },
+      {
+        "id": "AI-002",
+        "lane": "AI",
+        "title": "Post generation prompt",
+        "goal": "Generate LinkedIn-format drafts.",
+        "change": "Implement post generation prompt using retrieval context.",
+        "verify": "Generate a draft for fixture topic and validate constraints.",
+        "rollback": "Disable retrieval usage.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-002"
+        ],
+        "deps": [
+          "AI-001",
+          "RAG-007",
+          "CIOPS-013"
+        ]
+      },
+      {
+        "id": "AI-003",
+        "lane": "AI",
+        "title": "Hook generator",
+        "goal": "Improve openers.",
+        "change": "Generate hook variants with constraints (clarity, length, non-spam).",
+        "verify": "Generate hooks for fixtures and validate constraints.",
+        "rollback": "Disable hook generation.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-003"
+        ],
+        "deps": [
+          "AI-002"
+        ]
+      },
+      {
+        "id": "AI-004",
+        "lane": "AI",
+        "title": "CTA generator",
+        "goal": "Improve engagement without spam.",
+        "change": "Generate context-appropriate CTAs with a non-spam filter.",
+        "verify": "Generate CTAs for fixtures and validate tone.",
+        "rollback": "Disable CTA generation.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-004"
+        ],
+        "deps": [
+          "AI-003"
+        ]
+      },
+      {
+        "id": "AI-005",
+        "lane": "AI",
+        "title": "Comment reply drafts",
+        "goal": "Increase engagement with fast replies.",
+        "change": "Generate suggested replies for comment threads on the user's posts.",
+        "verify": "Run on fixture thread and validate outputs.",
+        "rollback": "Disable reply generation.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-005"
+        ],
+        "deps": [
+          "AI-004"
+        ]
+      },
+      {
+        "id": "AI-006",
+        "lane": "AI",
+        "title": "Variant generator (A/B drafts)",
+        "goal": "Enable A/B drafting.",
+        "change": "Generate N draft variants with distinct hooks/structures and store variants.",
+        "verify": "Create an experiment and confirm variants persist.",
+        "rollback": "Disable variant generation.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-006"
+        ],
+        "deps": [
+          "AI-005",
+          "DB-009"
+        ]
+      },
+      {
+        "id": "AI-007",
+        "lane": "AI",
+        "title": "Virality scoring",
+        "goal": "Rank drafts by likelihood to perform.",
+        "change": "Implement scoring with heuristics and optional critique.",
+        "verify": "Score sample drafts and confirm ordering is sensible.",
+        "rollback": "Disable scoring.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-007"
+        ],
+        "deps": [
+          "AI-006"
+        ]
+      },
+      {
+        "id": "AI-008",
+        "lane": "AI",
+        "title": "Similarity check",
+        "goal": "Avoid copying.",
+        "change": "Compute similarity against library embeddings and warn/adjust.",
+        "verify": "Generate similar draft and confirm it is flagged.",
+        "rollback": "Disable similarity checks.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-008"
+        ],
+        "deps": [
+          "AI-007",
+          "RAG-006"
+        ]
+      },
+      {
+        "id": "AI-009",
+        "lane": "AI",
+        "title": "Safety filter",
+        "goal": "Block spammy or risky outputs.",
+        "change": "Add a safety pass that can block outputs and require manual approval.",
+        "verify": "Try a spammy prompt and confirm it is blocked.",
+        "rollback": "Disable safety filter.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-009"
+        ],
+        "deps": [
+          "AI-008",
+          "SEC-010"
+        ]
+      },
+      {
+        "id": "AI-010",
+        "lane": "AI",
+        "title": "Repurpose content",
+        "goal": "Turn long-form content into posts.",
+        "change": "Repurpose text input into LinkedIn-format drafts.",
+        "verify": "Repurpose fixture article and validate output.",
+        "rollback": "Disable repurposing.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-010"
+        ],
+        "deps": [
+          "AI-009"
+        ]
+      },
+      {
+        "id": "AI-011",
+        "lane": "AI",
+        "title": "Carousel generator",
+        "goal": "Generate carousel-ready content.",
+        "change": "Generate slide-by-slide outline and copy for a carousel asset.",
+        "verify": "Generate 6-slide output and validate schema/length.",
+        "rollback": "Disable carousel generation.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-011"
+        ],
+        "deps": [
+          "AI-010",
+          "CIOPS-017"
+        ]
+      },
+      {
+        "id": "AI-012",
+        "lane": "AI",
+        "title": "Schedule recommender",
+        "goal": "Pick post times that maximize reach.",
+        "change": "Recommend times using analytics snapshots and heuristics.",
+        "verify": "Run on fixture analytics and validate ranked times.",
+        "rollback": "Disable schedule recommender.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-012"
+        ],
+        "deps": [
+          "AI-011",
+          "DB-008"
+        ]
+      },
+      {
+        "id": "AI-013",
+        "lane": "AI",
+        "title": "Autopilot planner",
+        "goal": "Propose next actions with approvals.",
+        "change": "Generate daily plan proposing drafts/schedules/replies into approval queue.",
+        "verify": "Generate plan in mock mode and confirm proposals created.",
+        "rollback": "Disable autopilot.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-013"
+        ],
+        "deps": [
+          "AI-012",
+          "CIOPS-014",
+          "SEC-004"
+        ]
+      },
+      {
+        "id": "AI-014",
+        "lane": "AI",
+        "title": "Token/cost tracking",
+        "goal": "Control AI spend.",
+        "change": "Track tokens/cost per request and store usage.",
+        "verify": "Run generation and confirm usage rows are written.",
+        "rollback": "Disable cost tracking.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-014"
+        ],
+        "deps": [
+          "AI-013"
+        ]
+      },
+      {
+        "id": "AI-015",
+        "lane": "AI",
+        "title": "Prompt versioning",
+        "goal": "Make prompt changes observable.",
+        "change": "Add prompt version IDs to stored drafts/variants.",
+        "verify": "Generate drafts and confirm version IDs persist.",
+        "rollback": "Remove versioning.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-015"
+        ],
+        "deps": [
+          "AI-014"
+        ]
+      },
+      {
+        "id": "AI-016",
+        "lane": "AI",
+        "title": "Multilingual style guides",
+        "goal": "Support PT-BR/EN voices.",
+        "change": "Add style guide presets and enforce language output.",
+        "verify": "Generate PT-BR and EN drafts and validate language adherence.",
+        "rollback": "Remove multilingual presets.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-016"
+        ],
+        "deps": [
+          "AI-015"
+        ]
+      },
+      {
+        "id": "AI-017",
+        "lane": "AI",
+        "title": "Retry + fallback model",
+        "goal": "Improve reliability.",
+        "change": "Add retries for transient failures and a fallback model option.",
+        "verify": "Simulate failures and confirm fallback triggers.",
+        "rollback": "Disable retries.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:AI-017"
+        ],
+        "deps": [
+          "AI-016"
+        ]
+      },
+      {
+        "id": "AI-018",
+        "lane": "AI",
+        "title": "Prompt eval harness",
+        "goal": "Catch regressions in quality.",
+        "change": "Add rubric-based eval script for prompts on fixtures.",
+        "verify": "Run eval and record baseline.",
+        "rollback": "Remove eval harness.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "artifact:ai-eval-baseline",
+          "evidence:AI-019"
+        ],
+        "deps": [
+          "AI-017"
+        ]
+      },
+      {
+        "id": "UI-001",
+        "lane": "UI",
+        "title": "App shell + auth",
+        "goal": "Provide a usable UI entrypoint.",
+        "change": "Build app shell, sign-in, and onboarding flow.",
+        "verify": "Sign in with a dev user and reach dashboard.",
+        "rollback": "Remove auth UI.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-001"
+        ],
+        "deps": [
+          "CIOPS-001",
+          "DB-002"
+        ]
+      },
+      {
+        "id": "UI-002",
+        "lane": "UI",
+        "title": "LinkedIn connect screen",
+        "goal": "Let user connect/disconnect LinkedIn.",
+        "change": "Add settings page to connect/disconnect and show status.",
+        "verify": "Connect in mock mode and confirm status updates.",
+        "rollback": "Remove connect UI.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-002"
+        ],
+        "deps": [
+          "UI-001",
+          "CIOPS-011"
+        ]
+      },
+      {
+        "id": "UI-003",
+        "lane": "UI",
+        "title": "Draft editor + preview",
+        "goal": "Create and edit drafts.",
+        "change": "Add draft editor with LinkedIn formatting preview.",
+        "verify": "Create a draft and confirm preview and save.",
+        "rollback": "Remove preview.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-003"
+        ],
+        "deps": [
+          "UI-002",
+          "CIOPS-012"
+        ]
+      },
+      {
+        "id": "UI-004",
+        "lane": "UI",
+        "title": "AI assist panel",
+        "goal": "Generate drafts and hooks from the UI.",
+        "change": "Add AI assist UI calling generation endpoints.",
+        "verify": "Generate hook and draft and confirm editor updates.",
+        "rollback": "Disable AI assist.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-004"
+        ],
+        "deps": [
+          "UI-003",
+          "CIOPS-013",
+          "AI-002"
+        ]
+      },
+      {
+        "id": "UI-005",
+        "lane": "UI",
+        "title": "Variants + experiments UI",
+        "goal": "Support A/B drafting.",
+        "change": "Add UI to generate variants and create experiments.",
+        "verify": "Create experiment and confirm variants persist.",
+        "rollback": "Remove variants UI.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-005"
+        ],
+        "deps": [
+          "UI-004",
+          "AI-006"
+        ]
+      },
+      {
+        "id": "UI-006",
+        "lane": "UI",
+        "title": "Content library explorer",
+        "goal": "Browse examples and patterns.",
+        "change": "Add page to search/browse examples and patterns.",
+        "verify": "Search for topic and confirm results.",
+        "rollback": "Remove library UI.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-006"
+        ],
+        "deps": [
+          "UI-005",
+          "RAG-010"
+        ]
+      },
+      {
+        "id": "UI-007",
+        "lane": "UI",
+        "title": "Schedule calendar",
+        "goal": "Plan posting over time.",
+        "change": "Add calendar/timeline UI to schedule drafts.",
+        "verify": "Schedule draft and confirm it appears.",
+        "rollback": "Remove calendar UI.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-007"
+        ],
+        "deps": [
+          "UI-006",
+          "CIOPS-014"
+        ]
+      },
+      {
+        "id": "UI-008",
+        "lane": "UI",
+        "title": "Approval inbox",
+        "goal": "Keep human-in-the-loop.",
+        "change": "Add inbox page listing proposed actions with approve/reject.",
+        "verify": "Approve proposed action and confirm worker processes it.",
+        "rollback": "Auto-approve everything.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-008"
+        ],
+        "deps": [
+          "UI-007",
+          "AI-013",
+          "SEC-004"
+        ]
+      },
+      {
+        "id": "UI-009",
+        "lane": "UI",
+        "title": "Analytics dashboard",
+        "goal": "Show performance.",
+        "change": "Add charts for impressions, reactions, and comments.",
+        "verify": "Load fixture analytics and confirm charts render.",
+        "rollback": "Remove dashboard.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-009"
+        ],
+        "deps": [
+          "UI-008",
+          "CIOPS-016"
+        ]
+      },
+      {
+        "id": "UI-010",
+        "lane": "UI",
+        "title": "Insights",
+        "goal": "Make analytics actionable.",
+        "change": "Add AI-generated insights summarizing winning hooks/topics.",
+        "verify": "Generate insights for fixture data and confirm display.",
+        "rollback": "Remove insights.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-010"
+        ],
+        "deps": [
+          "UI-009",
+          "AI-007"
+        ]
+      },
+      {
+        "id": "UI-011",
+        "lane": "UI",
+        "title": "Settings: safe mode + limits",
+        "goal": "Let user control automation intensity.",
+        "change": "Add settings for safe mode, max actions/day, and working hours.",
+        "verify": "Change settings and confirm worker respects them.",
+        "rollback": "Hardcode settings.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-011"
+        ],
+        "deps": [
+          "UI-010",
+          "SEC-005"
+        ]
+      },
+      {
+        "id": "UI-012",
+        "lane": "UI",
+        "title": "Carousel workflow",
+        "goal": "Upload/generate carousel assets.",
+        "change": "Add UI to generate carousel copy and upload/download PDF assets.",
+        "verify": "Upload PDF and confirm it can be attached to schedule.",
+        "rollback": "Disable carousel workflow.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-012"
+        ],
+        "deps": [
+          "UI-011",
+          "AI-011",
+          "CIOPS-017"
+        ]
+      },
+      {
+        "id": "UI-013",
+        "lane": "UI",
+        "title": "Weekly planner",
+        "goal": "Increase throughput without spam.",
+        "change": "Add planner to propose week of drafts/schedules with approvals.",
+        "verify": "Generate week plan and confirm schedules pending.",
+        "rollback": "Remove planner.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-013"
+        ],
+        "deps": [
+          "UI-012",
+          "AI-013"
+        ]
+      },
+      {
+        "id": "UI-014",
+        "lane": "UI",
+        "title": "Export drafts",
+        "goal": "Improve trust.",
+        "change": "Add export for drafts/experiments as JSON/CSV.",
+        "verify": "Export and confirm file valid.",
+        "rollback": "Disable export.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-014"
+        ],
+        "deps": [
+          "UI-013"
+        ]
+      },
+      {
+        "id": "UI-015",
+        "lane": "UI",
+        "title": "A11y + polish pass",
+        "goal": "Make UI resilient.",
+        "change": "Run accessibility review and fix high-impact issues.",
+        "verify": "Run automated checks and verify improvements.",
+        "rollback": "Revert UI changes.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:UI-015"
+        ],
+        "deps": [
+          "UI-014"
+        ]
+      },
+      {
+        "id": "OBS-001",
+        "lane": "OBS",
+        "title": "Structured logging",
+        "goal": "Make debugging possible.",
+        "change": "Add structured logs with request/job IDs across web + worker.",
+        "verify": "Trigger requests and confirm logs include IDs.",
+        "rollback": "Remove structured logging.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:OBS-001"
+        ],
+        "deps": [
+          "CIOPS-001"
+        ]
+      },
+      {
+        "id": "OBS-002",
+        "lane": "OBS",
+        "title": "Log redaction middleware",
+        "goal": "Avoid leaking secrets in logs.",
+        "change": "Redact tokens/cookies and sensitive payload fields in logs.",
+        "verify": "Log fake token and confirm redaction.",
+        "rollback": "Disable redaction.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:OBS-002"
+        ],
+        "deps": [
+          "OBS-001",
+          "SEC-012"
+        ]
+      },
+      {
+        "id": "OBS-003",
+        "lane": "OBS",
+        "title": "Error reporting",
+        "goal": "Capture exceptions.",
+        "change": "Add error reporting for web + worker.",
+        "verify": "Trigger test error and confirm it appears.",
+        "rollback": "Remove error reporting.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:OBS-003"
+        ],
+        "deps": [
+          "OBS-002"
+        ]
+      },
+      {
+        "id": "OBS-004",
+        "lane": "OBS",
+        "title": "Job metrics",
+        "goal": "Know whether automations are healthy.",
+        "change": "Emit counters for job outcomes and store aggregates.",
+        "verify": "Run jobs and confirm metrics update.",
+        "rollback": "Disable metrics.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:OBS-004"
+        ],
+        "deps": [
+          "OBS-003"
+        ]
+      },
+      {
+        "id": "OBS-005",
+        "lane": "OBS",
+        "title": "Alerts on repeated failures",
+        "goal": "Reduce downtime.",
+        "change": "Notify user/admin when a job fails repeatedly (email/in-app).",
+        "verify": "Simulate failures and confirm alert sent.",
+        "rollback": "Disable alerts.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:OBS-005"
+        ],
+        "deps": [
+          "OBS-004"
+        ]
+      },
+      {
+        "id": "OBS-006",
+        "lane": "OBS",
+        "title": "LinkedIn call tracing",
+        "goal": "Spot rate-limit and reliability issues.",
+        "change": "Record timings/error codes for LinkedIn calls.",
+        "verify": "Run fetch and confirm trace rows exist.",
+        "rollback": "Disable tracing.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:OBS-006"
+        ],
+        "deps": [
+          "OBS-005"
+        ]
+      },
+      {
+        "id": "OBS-007",
+        "lane": "OBS",
+        "title": "Worker health endpoint",
+        "goal": "Enable health checks.",
+        "change": "Expose health endpoint for worker and include queue lag.",
+        "verify": "Hit endpoint and confirm it reports status.",
+        "rollback": "Remove health endpoint.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:OBS-007"
+        ],
+        "deps": [
+          "OBS-006"
+        ]
+      },
+      {
+        "id": "OBS-008",
+        "lane": "OBS",
+        "title": "Post-deploy smoke checks",
+        "goal": "Catch broken deploys quickly.",
+        "change": "Add smoke script that hits health endpoints and runs noop job.",
+        "verify": "Run smoke checks on staging and confirm success.",
+        "rollback": "Remove smoke script.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:OBS-008"
+        ],
+        "deps": [
+          "OBS-007",
+          "CIOPS-018"
+        ]
+      },
+      {
+        "id": "BILL-001",
+        "lane": "BILL",
+        "title": "Define quotas",
+        "goal": "Bound cost and abuse.",
+        "change": "Define per-plan quotas (AI generations, scheduled posts) in config.",
+        "verify": "Load config and confirm gates evaluate correctly.",
+        "rollback": "Remove quota logic.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "doc:billing-quotas",
+          "evidence:BILL-001"
+        ],
+        "deps": [
+          "AI-014"
+        ]
+      },
+      {
+        "id": "BILL-002",
+        "lane": "BILL",
+        "title": "Stripe checkout",
+        "goal": "Enable paid subscriptions.",
+        "change": "Integrate Stripe checkout and map customer ID to user/workspace.",
+        "verify": "Run test checkout and confirm mapping stored.",
+        "rollback": "Disable billing.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:BILL-002"
+        ],
+        "deps": [
+          "BILL-001"
+        ]
+      },
+      {
+        "id": "BILL-003",
+        "lane": "BILL",
+        "title": "Stripe webhooks",
+        "goal": "Keep subscription status accurate.",
+        "change": "Handle subscription updates/cancellations via webhooks.",
+        "verify": "Send test webhook and confirm status updates.",
+        "rollback": "Remove webhooks.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:BILL-003"
+        ],
+        "deps": [
+          "BILL-002",
+          "SEC-008"
+        ]
+      },
+      {
+        "id": "BILL-004",
+        "lane": "BILL",
+        "title": "Enforce quotas",
+        "goal": "Prevent overuse.",
+        "change": "Enforce quotas for AI generation and scheduling endpoints.",
+        "verify": "Exceed quota and confirm requests blocked.",
+        "rollback": "Disable quota enforcement.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:BILL-004"
+        ],
+        "deps": [
+          "BILL-003",
+          "CIOPS-013",
+          "CIOPS-014"
+        ]
+      },
+      {
+        "id": "BILL-005",
+        "lane": "BILL",
+        "title": "Billing UI",
+        "goal": "Make billing transparent.",
+        "change": "Add UI showing plan, usage, and upgrade actions.",
+        "verify": "Load page and confirm usage matches metrics.",
+        "rollback": "Remove billing UI.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:BILL-005"
+        ],
+        "deps": [
+          "BILL-004",
+          "UI-001"
+        ]
+      },
+      {
+        "id": "BILL-006",
+        "lane": "BILL",
+        "title": "Dunning/cancel flow",
+        "goal": "Handle failed payments.",
+        "change": "Handle failed payment state and gracefully disable automations.",
+        "verify": "Simulate unpaid state and confirm automations blocked.",
+        "rollback": "Disable dunning logic.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:BILL-006"
+        ],
+        "deps": [
+          "BILL-005"
+        ]
+      },
+      {
+        "id": "TEST-001",
+        "lane": "TEST",
+        "title": "Unit: LinkedIn boundary",
+        "goal": "Validate integration boundaries.",
+        "change": "Add unit tests for LinkedIn interface using mock client.",
+        "verify": "Run tests and confirm green.",
+        "rollback": "Remove tests.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-001"
+        ],
+        "deps": [
+          "CIOPS-007"
+        ]
+      },
+      {
+        "id": "TEST-002",
+        "lane": "TEST",
+        "title": "Integration: RLS",
+        "goal": "Prevent data leaks.",
+        "change": "Add tests that attempt cross-user reads/writes and expect failures.",
+        "verify": "Run tests and confirm policies hold.",
+        "rollback": "Remove tests.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-002"
+        ],
+        "deps": [
+          "TEST-001",
+          "DB-013"
+        ]
+      },
+      {
+        "id": "TEST-003",
+        "lane": "TEST",
+        "title": "Integration: scheduler -> publish",
+        "goal": "Ensure automations run end-to-end.",
+        "change": "Test schedule -> approval -> publish pipeline in mock mode.",
+        "verify": "Run test and confirm idempotency.",
+        "rollback": "Remove test.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-003"
+        ],
+        "deps": [
+          "TEST-002",
+          "CIOPS-015",
+          "CIOPS-016",
+          "SEC-006"
+        ]
+      },
+      {
+        "id": "TEST-004",
+        "lane": "TEST",
+        "title": "Unit: AI schemas",
+        "goal": "Keep prompts stable.",
+        "change": "Validate AI outputs against schemas.",
+        "verify": "Run tests and confirm failures on malformed outputs.",
+        "rollback": "Remove tests.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-004"
+        ],
+        "deps": [
+          "TEST-003",
+          "AI-002"
+        ]
+      },
+      {
+        "id": "TEST-005",
+        "lane": "TEST",
+        "title": "Snapshot: virality scoring",
+        "goal": "Detect regressions in ranking.",
+        "change": "Add snapshot tests for scorer outputs on fixed drafts.",
+        "verify": "Run tests and confirm stable results.",
+        "rollback": "Remove snapshots.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-005"
+        ],
+        "deps": [
+          "TEST-004",
+          "AI-007"
+        ]
+      },
+      {
+        "id": "TEST-006",
+        "lane": "TEST",
+        "title": "E2E: authoring journey",
+        "goal": "Validate the main user journey.",
+        "change": "Playwright E2E: connect -> generate -> edit -> schedule.",
+        "verify": "Run E2E and capture evidence.",
+        "rollback": "Remove E2E.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-006"
+        ],
+        "deps": [
+          "TEST-005",
+          "UI-007"
+        ]
+      },
+      {
+        "id": "TEST-007",
+        "lane": "TEST",
+        "title": "E2E: approvals",
+        "goal": "Validate human-in-the-loop.",
+        "change": "Playwright E2E: approve proposed action and see execution.",
+        "verify": "Run E2E and confirm executed.",
+        "rollback": "Remove E2E.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-007"
+        ],
+        "deps": [
+          "TEST-006",
+          "UI-008"
+        ]
+      },
+      {
+        "id": "TEST-008",
+        "lane": "TEST",
+        "title": "E2E: analytics",
+        "goal": "Ensure dashboards don't break.",
+        "change": "Playwright E2E asserting analytics charts render.",
+        "verify": "Run E2E and confirm chart visible.",
+        "rollback": "Remove E2E.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-008"
+        ],
+        "deps": [
+          "TEST-007",
+          "UI-009"
+        ]
+      },
+      {
+        "id": "TEST-009",
+        "lane": "TEST",
+        "title": "Security: sessions not leaked",
+        "goal": "Prevent session exposure.",
+        "change": "Test that li_sessions blobs are never returned via APIs.",
+        "verify": "Run tests and confirm.",
+        "rollback": "Remove tests.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-009"
+        ],
+        "deps": [
+          "TEST-008",
+          "SEC-003"
+        ]
+      },
+      {
+        "id": "TEST-010",
+        "lane": "TEST",
+        "title": "Load: ingestion job",
+        "goal": "Avoid timeouts.",
+        "change": "Ingest N fixture posts and measure runtime.",
+        "verify": "Run script and record baseline.",
+        "rollback": "Remove load script.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-010"
+        ],
+        "deps": [
+          "TEST-009",
+          "RAG-002"
+        ]
+      },
+      {
+        "id": "TEST-011",
+        "lane": "TEST",
+        "title": "CI pipeline",
+        "goal": "Keep main branch healthy.",
+        "change": "Add CI for lint, type-check, unit, and E2E in mock mode.",
+        "verify": "Push and confirm CI passes.",
+        "rollback": "Remove CI.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "evidence:TEST-011"
+        ],
+        "deps": [
+          "TEST-010",
+          "CLEAN-002"
+        ]
+      },
+      {
+        "id": "TEST-012",
+        "lane": "TEST",
+        "title": "Manual QA checklist",
+        "goal": "Ship safely.",
+        "change": "Write manual QA checklist for connect, draft, schedule, approval, analytics.",
+        "verify": "Run checklist on staging and record results.",
+        "rollback": "Delete checklist.",
+        "inputs": [
+          "repo: automnator"
+        ],
+        "outputs": [
+          "doc:manual-qa",
+          "evidence:TEST-012"
+        ],
+        "deps": [
+          "TEST-011",
+          "CIOPS-018"
+        ]
+      }
+    ],
+    "paths": {
+      "MASTER_FULL": [
+        "CIOPS-001",
+        "CIOPS-002",
+        "CIOPS-003",
+        "CIOPS-004",
+        "CIOPS-005",
+        "CIOPS-006",
+        "CIOPS-007",
+        "CIOPS-008",
+        "CIOPS-009",
+        "CIOPS-010",
+        "CIOPS-011",
+        "CIOPS-012",
+        "CIOPS-013",
+        "CIOPS-014",
+        "CIOPS-015",
+        "CIOPS-016",
+        "CIOPS-017",
+        "CIOPS-018",
+        "CIOPS-019",
+        "CLEAN-001",
+        "CLEAN-002",
+        "CLEAN-003",
+        "CLEAN-004",
+        "CLEAN-005",
+        "CLEAN-006",
+        "CLEAN-007",
+        "CLEAN-008",
+        "DB-001",
+        "DB-002",
+        "DB-003",
+        "DB-004",
+        "DB-005",
+        "DB-006",
+        "DB-007",
+        "DB-008",
+        "DB-009",
+        "DB-010",
+        "DB-011",
+        "DB-012",
+        "DB-013",
+        "DB-014",
+        "DB-015",
+        "SEC-001",
+        "SEC-002",
+        "SEC-003",
+        "SEC-004",
+        "SEC-005",
+        "SEC-006",
+        "SEC-007",
+        "SEC-008",
+        "SEC-009",
+        "SEC-010",
+        "SEC-011",
+        "SEC-012",
+        "RAG-001",
+        "RAG-002",
+        "RAG-003",
+        "RAG-004",
+        "RAG-005",
+        "RAG-006",
+        "RAG-007",
+        "RAG-008",
+        "RAG-009",
+        "RAG-010",
+        "AI-001",
+        "AI-002",
+        "AI-003",
+        "AI-004",
+        "AI-005",
+        "AI-006",
+        "AI-007",
+        "AI-008",
+        "AI-009",
+        "AI-010",
+        "AI-011",
+        "AI-012",
+        "AI-013",
+        "AI-014",
+        "AI-015",
+        "AI-016",
+        "AI-017",
+        "AI-018",
+        "UI-001",
+        "UI-002",
+        "UI-003",
+        "UI-004",
+        "UI-005",
+        "UI-006",
+        "UI-007",
+        "UI-008",
+        "UI-009",
+        "UI-010",
+        "UI-011",
+        "UI-012",
+        "UI-013",
+        "UI-014",
+        "UI-015",
+        "OBS-001",
+        "OBS-002",
+        "OBS-003",
+        "OBS-004",
+        "OBS-005",
+        "OBS-006",
+        "OBS-007",
+        "OBS-008",
+        "BILL-001",
+        "BILL-002",
+        "BILL-003",
+        "BILL-004",
+        "BILL-005",
+        "BILL-006",
+        "TEST-001",
+        "TEST-002",
+        "TEST-003",
+        "TEST-004",
+        "TEST-005",
+        "TEST-006",
+        "TEST-007",
+        "TEST-008",
+        "TEST-009",
+        "TEST-010",
+        "TEST-011",
+        "TEST-012"
+      ],
+      "MVP_SHIP": [
+        "CIOPS-001",
+        "CIOPS-002",
+        "CIOPS-003",
+        "CIOPS-004",
+        "CIOPS-005",
+        "CIOPS-006",
+        "CIOPS-007",
+        "CIOPS-009",
+        "CIOPS-010",
+        "CIOPS-011",
+        "CIOPS-012",
+        "CIOPS-013",
+        "CIOPS-014",
+        "CIOPS-015",
+        "CIOPS-016",
+        "CIOPS-017",
+        "CIOPS-018",
+        "CIOPS-019",
+        "CLEAN-001",
+        "CLEAN-002",
+        "CLEAN-003",
+        "CLEAN-004",
+        "CLEAN-005",
+        "CLEAN-006",
+        "CLEAN-007",
+        "CLEAN-008",
+        "DB-001",
+        "DB-002",
+        "DB-003",
+        "DB-004",
+        "DB-005",
+        "DB-006",
+        "DB-007",
+        "DB-008",
+        "DB-009",
+        "DB-010",
+        "DB-011",
+        "DB-012",
+        "DB-013",
+        "DB-014",
+        "DB-015",
+        "SEC-001",
+        "SEC-002",
+        "SEC-003",
+        "SEC-004",
+        "SEC-005",
+        "SEC-006",
+        "SEC-007",
+        "SEC-008",
+        "SEC-009",
+        "SEC-010",
+        "SEC-011",
+        "SEC-012",
+        "RAG-001",
+        "RAG-002",
+        "RAG-003",
+        "RAG-004",
+        "RAG-005",
+        "RAG-006",
+        "RAG-007",
+        "RAG-008",
+        "RAG-009",
+        "RAG-010",
+        "AI-001",
+        "AI-002",
+        "AI-003",
+        "AI-004",
+        "AI-005",
+        "AI-006",
+        "AI-007",
+        "AI-008",
+        "AI-009",
+        "AI-010",
+        "AI-011",
+        "AI-012",
+        "AI-013",
+        "AI-014",
+        "AI-015",
+        "AI-016",
+        "AI-017",
+        "AI-018",
+        "UI-001",
+        "UI-002",
+        "UI-003",
+        "UI-004",
+        "UI-005",
+        "UI-006",
+        "UI-007",
+        "UI-008",
+        "UI-009",
+        "UI-010",
+        "UI-011",
+        "UI-012",
+        "UI-013",
+        "UI-014",
+        "UI-015",
+        "OBS-001",
+        "OBS-002",
+        "OBS-003",
+        "OBS-004",
+        "OBS-005",
+        "OBS-006",
+        "OBS-007",
+        "OBS-008",
+        "TEST-001",
+        "TEST-002",
+        "TEST-003",
+        "TEST-004",
+        "TEST-005",
+        "TEST-006",
+        "TEST-007",
+        "TEST-008",
+        "TEST-009",
+        "TEST-010",
+        "TEST-011",
+        "TEST-012"
+      ]
+    }
+  }
+}
