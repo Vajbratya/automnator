@@ -48,6 +48,7 @@ Key vars:
 - `AUTOMNATOR_DB_PATH`: optional; defaults to `.data/automnator.db.json`
 - `MOCK_LINKEDIN`: defaults to `true`
 - `MOCK_AI`: defaults to `true`
+- `OPENROUTER_API_KEY`: optional; when set and `MOCK_AI=false`, `/api/ai/generate-post` uses OpenRouter
 
 ## Notes On LinkedIn Integration
 

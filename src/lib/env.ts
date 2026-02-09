@@ -21,6 +21,10 @@ const ServerEnvSchema = z.object({
   LI_SESSION_ENCRYPTION_KEY: z.string().min(1).optional(),
 
   OPENAI_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_API_KEYH: z.string().min(1).optional(),
+  OPENROUTER_MODEL: z.string().min(1).optional(),
+  OPENROUTER_BASE_URL: z.string().url().optional(),
 
   MOCK_LINKEDIN: z.coerce.boolean().optional(),
   MOCK_AI: z.coerce.boolean().optional(),
