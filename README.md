@@ -34,6 +34,10 @@ Optionally, trigger a single run via API (useful for cron-style setups):
 
 - `POST /api/worker/run?secret=WORKER_CRON_SECRET`
 
+You can also auto-generate + schedule posts (planner batch mode):
+
+- `POST /api/auto/run?secret=WORKER_CRON_SECRET`
+
 ## Quality Gates
 
 ```bash

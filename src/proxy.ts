@@ -10,6 +10,7 @@ const CSRF_EXEMPT = [
   /^\/api\/ai(\/|$)/,
   /^\/api\/health(\/|$)/,
   /^\/api\/worker\/run(\/|$)/,
+  /^\/api\/auto\/run(\/|$)/,
 ];
 
 export default function proxy(request: NextRequest) {

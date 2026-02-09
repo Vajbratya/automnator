@@ -18,13 +18,13 @@ export async function POST(request: NextRequest) {
       return jsonError("Unauthorized", 401);
     }
   } else {
-    // If no secret is configured, refuse to run in production.
-    if (env.NODE_ENV === "production") {
-      return jsonError("WORKER_CRON_SECRET is required in production.", 500);
+    // If no secret is configured, refuse to run in production only when
+    // publishing is real (non-mock). This keeps demo deploys usable.
+    if (env.NODE_ENV === "production" && !env.MOCK_LINKEDIN) {
+      return jsonError("WORKER_CRON_SECRET is required for non-mock publishing.", 500);
     }
   }
 
   const result = await runWorkerOnce({ limit: 10 });
   return jsonOk({ ok: true, ...result });
 }
-
