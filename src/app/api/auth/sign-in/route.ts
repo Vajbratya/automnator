@@ -22,7 +22,12 @@ export async function POST(request: NextRequest) {
   const store = getStore();
   const user = await store.getOrCreateUserByEmail(body.email);
 
-  const token = createSessionToken({ userId: user.id, email: user.email });
+  let token: string;
+  try {
+    token = createSessionToken({ userId: user.id, email: user.email });
+  } catch (err) {
+    return jsonError((err as Error).message, 500);
+  }
   const response = jsonCreated({ ok: true, user: { id: user.id, email: user.email } });
 
   response.cookies.set(getSessionCookieName(), token, {

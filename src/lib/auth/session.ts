@@ -30,7 +30,14 @@ function getSessionSecret(): string | null {
   const env = getServerEnv();
   const secret = process.env.APP_SESSION_SECRET?.trim();
   if (secret) return secret;
-  if (env.NODE_ENV === "production") return null;
+  if (env.NODE_ENV === "production") {
+    // Make preview deploys usable without manual env setup.
+    // Never do this for real production deployments.
+    const isVercelPreview =
+      Boolean(process.env.VERCEL) && process.env.VERCEL_ENV === "preview";
+    if (isVercelPreview) return "vercel-preview-insecure-secret";
+    return null;
+  }
   // Dev fallback to keep the app usable locally without configuration.
   return "dev-insecure-secret";
 }
