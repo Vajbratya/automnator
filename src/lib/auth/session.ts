@@ -31,11 +31,25 @@ function getSessionSecret(): string | null {
   const secret = process.env.APP_SESSION_SECRET?.trim();
   if (secret) return secret;
   if (env.NODE_ENV === "production") {
-    // Make preview deploys usable without manual env setup.
-    // Never do this for real production deployments.
-    const isVercelPreview =
-      Boolean(process.env.VERCEL) && process.env.VERCEL_ENV === "preview";
-    if (isVercelPreview) return "vercel-preview-insecure-secret";
+    // Make no-auth Vercel demo deploys usable without manual env setup.
+    // For real production deployments, set APP_SESSION_SECRET explicitly.
+    if (process.env.VERCEL) {
+      const seed = [
+        process.env.VERCEL_PROJECT_ID,
+        process.env.VERCEL_DEPLOYMENT_ID,
+        process.env.VERCEL_URL,
+        process.env.VERCEL_GIT_REPO_SLUG,
+      ]
+        .filter(Boolean)
+        .join("|");
+
+      if (seed) {
+        return createHmac("sha256", "automnator-vercel-fallback").update(seed).digest("hex");
+      }
+
+      return "vercel-insecure-secret";
+    }
+
     return null;
   }
   // Dev fallback to keep the app usable locally without configuration.
