@@ -22,6 +22,7 @@ Open http://localhost:3000
 2. Create a draft, generate variants, and save content
 3. Schedule a post (it will be `pending` until approved)
 4. Approve in `/app/approvals`
+5. (Optional) Add inspiration sources/captures in `/app/research` and generate a batch in `/app/planner`
 
 Run the worker in a second terminal to “publish” due, approved schedules:
 
@@ -55,3 +56,7 @@ Key vars:
 The current implementation ships with a mock LinkedIn adapter. A real adapter
 should be added behind an explicit opt-in flag (and you should ensure your usage
 complies with LinkedIn’s platform policies and your local laws).
+
+For a simple integration without scraping/private APIs, you can set
+`MOCK_LINKEDIN=false` and provide `PUBLISH_WEBHOOK_URL` so the worker calls your
+own webhook to publish the post (Buffer/Zapier/Make/etc).

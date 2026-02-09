@@ -7,6 +7,33 @@ export const UserSchema = z.object({
 });
 export type User = z.infer<typeof UserSchema>;
 
+export const ResearchSourceTypeSchema = z.enum(["person", "keyword"]);
+export type ResearchSourceType = z.infer<typeof ResearchSourceTypeSchema>;
+
+export const ResearchSourceSchema = z.object({
+  id: z.string().min(1),
+  userId: z.string().min(1),
+  type: ResearchSourceTypeSchema,
+  name: z.string().min(1),
+  profileUrl: z.string().url().optional(),
+  keyword: z.string().min(1).optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type ResearchSource = z.infer<typeof ResearchSourceSchema>;
+
+export const CapturedPostSchema = z.object({
+  id: z.string().min(1),
+  userId: z.string().min(1),
+  sourceId: z.string().min(1).optional(),
+  authorName: z.string().min(1),
+  authorUrl: z.string().url().optional(),
+  postUrl: z.string().url().optional(),
+  text: z.string().min(1),
+  capturedAt: z.string().datetime(),
+});
+export type CapturedPost = z.infer<typeof CapturedPostSchema>;
+
 export const DraftStatusSchema = z.enum(["draft", "scheduled", "published"]);
 export type DraftStatus = z.infer<typeof DraftStatusSchema>;
 
@@ -77,11 +104,13 @@ export const ActionLogSchema = z.object({
 export type ActionLog = z.infer<typeof ActionLogSchema>;
 
 export const DbSchema = z.object({
-  version: z.literal(1),
-  users: z.record(z.string(), UserSchema),
-  drafts: z.record(z.string(), DraftSchema),
-  schedules: z.record(z.string(), ScheduleSchema),
-  posts: z.record(z.string(), PostSchema),
-  actionLogs: z.record(z.string(), ActionLogSchema),
+  version: z.literal(1).default(1),
+  users: z.record(z.string(), UserSchema).default({}),
+  sources: z.record(z.string(), ResearchSourceSchema).default({}),
+  captures: z.record(z.string(), CapturedPostSchema).default({}),
+  drafts: z.record(z.string(), DraftSchema).default({}),
+  schedules: z.record(z.string(), ScheduleSchema).default({}),
+  posts: z.record(z.string(), PostSchema).default({}),
+  actionLogs: z.record(z.string(), ActionLogSchema).default({}),
 });
 export type Db = z.infer<typeof DbSchema>;

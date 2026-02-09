@@ -28,6 +28,10 @@ const ServerEnvSchema = z.object({
 
   MOCK_LINKEDIN: z.coerce.boolean().optional(),
   MOCK_AI: z.coerce.boolean().optional(),
+
+  // Optional publisher integration (used when MOCK_LINKEDIN=false)
+  PUBLISH_WEBHOOK_URL: z.string().url().optional(),
+  PUBLISH_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof ServerEnvSchema> & {

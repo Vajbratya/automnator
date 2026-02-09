@@ -47,6 +47,18 @@ export default async function AppLayout({
               Drafts
             </Link>
             <Link
+              href="/app/research"
+              className="rounded-xl px-3 py-2 hover:bg-black/5"
+            >
+              Research
+            </Link>
+            <Link
+              href="/app/planner"
+              className="rounded-xl px-3 py-2 hover:bg-black/5"
+            >
+              Planner
+            </Link>
+            <Link
               href="/app/schedules"
               className="rounded-xl px-3 py-2 hover:bg-black/5"
             >

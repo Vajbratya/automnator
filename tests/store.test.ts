@@ -115,3 +115,45 @@ test("FileStore: schedule approval, claim, and success creates a post", async (t
   assert.ok(logs.length >= 1);
 });
 
+test("FileStore: research sources and captures lifecycle", async (t) => {
+  const { dir, dbPath } = await mkTmpDbPath();
+  t.after(async () => fs.rm(dir, { recursive: true, force: true }));
+
+  const store = new FileStore({ dbPath });
+  const user = await store.getOrCreateUserByEmail("research@example.com");
+
+  const src = await store.createSource(user.id, {
+    type: "person",
+    name: "Jane Doe",
+    profileUrl: "https://www.linkedin.com/in/jane-doe/",
+  });
+
+  const sources = await store.listSources(user.id);
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0]?.id, src.id);
+
+  const cap = await store.createCapture(user.id, {
+    sourceId: src.id,
+    authorName: "Jane Doe",
+    postUrl: "https://www.linkedin.com/posts/jane-doe_123",
+    text: "A short post about compounding.",
+    capturedAt: new Date().toISOString(),
+  });
+
+  const captures = await store.listCaptures(user.id);
+  assert.equal(captures.length, 1);
+  assert.equal(captures[0]?.id, cap.id);
+  assert.equal(captures[0]?.sourceId, src.id);
+
+  await store.deleteSource(user.id, src.id);
+  const sourcesAfter = await store.listSources(user.id);
+  assert.equal(sourcesAfter.length, 0);
+
+  const capturesAfter = await store.listCaptures(user.id);
+  assert.equal(capturesAfter.length, 1);
+  assert.equal(capturesAfter[0]?.sourceId, undefined);
+
+  await store.deleteCapture(user.id, cap.id);
+  const capturesFinal = await store.listCaptures(user.id);
+  assert.equal(capturesFinal.length, 0);
+});

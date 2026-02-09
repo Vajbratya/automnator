@@ -5,15 +5,19 @@ import { newId } from "@/lib/ids";
 import { nowIso, parseIsoDate } from "@/lib/time";
 import type {
   ActionLog,
+  CapturedPost,
   Db,
   Draft,
+  ResearchSource,
   Schedule,
   User,
 } from "@/lib/store/types";
 import { DbSchema, DraftStatusSchema, ScheduleStatusSchema } from "@/lib/store/types";
 import type {
+  CaptureCreateInput,
   DraftCreateInput,
   DraftUpdateInput,
+  ResearchSourceCreateInput,
   ScheduleCreateInput,
   Store,
 } from "@/lib/store/store";
@@ -21,6 +25,8 @@ import type {
 const DEFAULT_DB: Db = {
   version: 1,
   users: {},
+  sources: {},
+  captures: {},
   drafts: {},
   schedules: {},
   posts: {},
@@ -106,6 +112,102 @@ export class FileStore implements Store {
   async getUserById(userId: string): Promise<User | null> {
     const db = await this.readDb();
     return db.users[userId] ?? null;
+  }
+
+  async listSources(userId: string): Promise<ResearchSource[]> {
+    const db = await this.readDb();
+    return Object.values(db.sources)
+      .filter((s) => s.userId === userId)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  async createSource(userId: string, input: ResearchSourceCreateInput): Promise<ResearchSource> {
+    const name = input.name.trim();
+    if (!name) throw new Error("name is required.");
+
+    if (input.type === "person" && input.profileUrl && !input.profileUrl.trim()) {
+      throw new Error("profileUrl is invalid.");
+    }
+    if (input.type === "keyword" && input.keyword && !input.keyword.trim()) {
+      throw new Error("keyword is invalid.");
+    }
+
+    return this.withDbWrite((db) => {
+      const now = nowIso();
+      const src: ResearchSource = {
+        id: newId(),
+        userId,
+        type: input.type,
+        name,
+        profileUrl: input.profileUrl?.trim() || undefined,
+        keyword: input.keyword?.trim() || undefined,
+        createdAt: now,
+        updatedAt: now,
+      };
+      db.sources[src.id] = src;
+      return src;
+    });
+  }
+
+  async deleteSource(userId: string, sourceId: string): Promise<void> {
+    await this.withDbWrite((db) => {
+      const src = db.sources[sourceId];
+      if (!src || src.userId !== userId) return;
+      delete db.sources[sourceId];
+
+      // Orphan captures referencing this source.
+      for (const c of Object.values(db.captures)) {
+        if (c.userId === userId && c.sourceId === sourceId) {
+          delete (c as Partial<CapturedPost>).sourceId;
+          db.captures[c.id] = c;
+        }
+      }
+    });
+  }
+
+  async listCaptures(userId: string): Promise<CapturedPost[]> {
+    const db = await this.readDb();
+    return Object.values(db.captures)
+      .filter((c) => c.userId === userId)
+      .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+  }
+
+  async createCapture(userId: string, input: CaptureCreateInput): Promise<CapturedPost> {
+    const authorName = input.authorName.trim();
+    const text = input.text.trim();
+    if (!authorName) throw new Error("authorName is required.");
+    if (!text) throw new Error("text is required.");
+
+    const capturedAt = input.capturedAt ? parseIsoDate(input.capturedAt) : new Date();
+    if (!capturedAt) throw new Error("capturedAt is invalid.");
+
+    return this.withDbWrite((db) => {
+      if (input.sourceId) {
+        const src = db.sources[input.sourceId];
+        if (!src || src.userId !== userId) throw new Error("sourceId not found.");
+      }
+
+      const c: CapturedPost = {
+        id: newId(),
+        userId,
+        sourceId: input.sourceId,
+        authorName,
+        authorUrl: input.authorUrl?.trim() || undefined,
+        postUrl: input.postUrl?.trim() || undefined,
+        text,
+        capturedAt: capturedAt.toISOString(),
+      };
+      db.captures[c.id] = c;
+      return c;
+    });
+  }
+
+  async deleteCapture(userId: string, captureId: string): Promise<void> {
+    await this.withDbWrite((db) => {
+      const c = db.captures[captureId];
+      if (!c || c.userId !== userId) return;
+      delete db.captures[captureId];
+    });
   }
 
   async listDrafts(userId: string): Promise<Draft[]> {
