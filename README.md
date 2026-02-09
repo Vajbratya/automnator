@@ -30,6 +30,10 @@ Run the worker in a second terminal to “publish” due, approved schedules:
 pnpm worker
 ```
 
+Optionally, trigger a single run via API (useful for cron-style setups):
+
+- `POST /api/worker/run?secret=WORKER_CRON_SECRET`
+
 ## Quality Gates
 
 ```bash
